@@ -2,13 +2,17 @@ import { create } from 'zustand';
 import type { JsonDocument, JsonNode, JsonNodeType } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
-interface HistoryCommand {
-    type: 'UPDATE_VALUE' | 'ADD_NODE' | 'DELETE_NODE' | 'RENAME_KEY';
-    payload: any;
-}
+type JsonPrimitive = string | number | boolean | null;
+
+type HistoryCommand =
+    | { type: 'UPDATE_VALUE'; payload: { id: string; oldValue: JsonPrimitive; newValue: JsonPrimitive } }
+    | { type: 'RENAME_KEY'; payload: { id: string; oldKey?: string; newKey: string } }
+    | { type: 'ADD_NODE'; payload: { parentId: string; node: JsonNode } }
+    | { type: 'DELETE_NODE'; payload: { parentId: string; index: number; node: JsonNode; subtree: Record<string, JsonNode> } };
 
 interface JsonState {
     document: JsonDocument | null;
+    currentFileName: string;
     selectedId: string | null;
     expandedIds: Set<string>;
 
@@ -20,6 +24,8 @@ interface JsonState {
     // History
     undoStack: HistoryCommand[];
     redoStack: HistoryCommand[];
+
+    setCurrentFileName: (fileName: string) => void;
 
     setDocument: (doc: JsonDocument) => void;
     selectNode: (id: string | null) => void;
@@ -33,7 +39,7 @@ interface JsonState {
     redo: () => void;
 
     // Mutations
-    updateNodeValue: (id: string, value: any) => void;
+    updateNodeValue: (id: string, value: JsonPrimitive) => void;
     addNode: (parentId: string, type: JsonNodeType, key?: string) => void;
     deleteNode: (id: string) => void;
     renameNodeKey: (id: string, newKey: string) => void;
@@ -41,6 +47,7 @@ interface JsonState {
 
 export const useJsonStore = create<JsonState>((set, get) => ({
     document: null,
+    currentFileName: 'untitled.json',
     selectedId: null,
     expandedIds: new Set(),
 
@@ -50,6 +57,8 @@ export const useJsonStore = create<JsonState>((set, get) => ({
 
     undoStack: [],
     redoStack: [],
+
+    setCurrentFileName: (fileName) => set({ currentFileName: fileName || 'untitled.json' }),
 
     setDocument: (doc) => set({
         document: doc,
@@ -102,7 +111,7 @@ export const useJsonStore = create<JsonState>((set, get) => ({
         traverse(state.document.rootId);
 
         // Auto expand for first result
-        let toExpand = new Set(state.expandedIds);
+        const toExpand = new Set(state.expandedIds);
         if (results.length > 0) {
             const firstId = results[0];
             const nodes = state.document.nodes;
@@ -168,7 +177,7 @@ export const useJsonStore = create<JsonState>((set, get) => ({
         const newUndoStack = state.undoStack.slice(0, -1);
         const newRedoStack = [...state.redoStack, command];
 
-        let newDocument = { ...state.document };
+        const newDocument = { ...state.document };
         const nodes = { ...newDocument.nodes };
 
         if (command.type === 'UPDATE_VALUE') {
@@ -212,7 +221,7 @@ export const useJsonStore = create<JsonState>((set, get) => ({
         const newRedoStack = state.redoStack.slice(0, -1);
         const newUndoStack = [...state.undoStack, command];
 
-        let newDocument = { ...state.document };
+        const newDocument = { ...state.document };
         const nodes = { ...newDocument.nodes };
 
         if (command.type === 'UPDATE_VALUE') {
@@ -253,9 +262,11 @@ export const useJsonStore = create<JsonState>((set, get) => ({
         const node = state.document.nodes[id];
         if (!node) return {};
 
+        const oldValue: JsonPrimitive = (node.value ?? null) as JsonPrimitive;
+
         const command: HistoryCommand = {
             type: 'UPDATE_VALUE',
-            payload: { id, oldValue: node.value, newValue: value }
+            payload: { id, oldValue, newValue: value }
         };
 
         return {
@@ -276,7 +287,7 @@ export const useJsonStore = create<JsonState>((set, get) => ({
         const parent = state.document.nodes[parentId];
         if (!parent || !parent.children) return {};
 
-        let value: any = null;
+        let value: JsonPrimitive = null;
         if (type === 'string') value = "";
         else if (type === 'number') value = 0;
         else if (type === 'boolean') value = false;

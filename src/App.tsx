@@ -20,6 +20,7 @@ const SAMPLE_JSON = {
 
 function App() {
   const setDocument = useJsonStore((state) => state.setDocument);
+  const currentFileName = useJsonStore((state) => state.currentFileName);
   const { handlePaste, handleDrop, handleDragOver } = useFileIO();
 
   // Load sample data on mount (for dev)
@@ -29,8 +30,16 @@ function App() {
   }, [setDocument]);
 
   useEffect(() => {
-    window.addEventListener('paste', handlePaste as any);
-    return () => window.removeEventListener('paste', handlePaste as any);
+    window.document.title = `VisualJSON - ${currentFileName}`;
+  }, [currentFileName]);
+
+  useEffect(() => {
+    const listener: EventListener = (event) => {
+      handlePaste(event as ClipboardEvent);
+    };
+
+    window.addEventListener('paste', listener);
+    return () => window.removeEventListener('paste', listener);
   }, [handlePaste]);
 
   return (

@@ -5,13 +5,13 @@ import { useFileIO } from '../../hooks/useFileIO';
 interface IconButtonProps {
     icon: LucideIcon;
     label?: string;
-    onClick?: () => void;
+    onClick?: () => void | Promise<void>;
     disabled?: boolean;
 }
 
 const IconButton = ({ icon: Icon, label, onClick, disabled }: IconButtonProps) => (
     <button
-        onClick={onClick}
+        onClick={() => { void onClick?.(); }}
         disabled={disabled}
         className="p-2 hover:bg-slate-200 rounded text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 transition-colors"
         title={label}

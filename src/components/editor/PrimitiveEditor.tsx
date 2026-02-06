@@ -9,7 +9,7 @@ export const PrimitiveEditor = ({ node }: PrimitiveEditorProps) => {
     const updateNodeValue = useJsonStore((state) => state.updateNodeValue);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        let value: any = e.target.value;
+        let value: string | number = e.target.value;
         if (node.type === 'number') {
             value = Number(value);
         } else if (node.type === 'boolean') {
@@ -19,7 +19,7 @@ export const PrimitiveEditor = ({ node }: PrimitiveEditorProps) => {
     };
 
     const handleBooleanChange = () => {
-        updateNodeValue(node.id, !node.value);
+        updateNodeValue(node.id, !(node.value as boolean));
     };
 
     if (node.type === 'string') {

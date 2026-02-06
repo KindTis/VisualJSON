@@ -1,10 +1,13 @@
 import type { JsonDocument, JsonNode, JsonNodeType } from '../types';
 import { generateId } from './id';
 
-export const jsonToAst = (json: any): JsonDocument => {
+type JsonPrimitive = string | number | boolean | null;
+type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+
+export const jsonToAst = (json: JsonValue): JsonDocument => {
     const nodes: Record<string, JsonNode> = {};
 
-    const parseNode = (value: any, parentId?: string, key?: string): string => {
+    const parseNode = (value: JsonValue, parentId?: string, key?: string): string => {
         const id = generateId();
         let type: JsonNodeType;
         let nodeValue: string | number | boolean | null = null;
@@ -41,17 +44,17 @@ export const jsonToAst = (json: any): JsonDocument => {
     return { rootId, nodes };
 };
 
-export const astToJson = (doc: JsonDocument): any => {
+export const astToJson = (doc: JsonDocument): JsonValue => {
     const { rootId, nodes } = doc;
 
-    const serializeNode = (nodeId: string): any => {
+    const serializeNode = (nodeId: string): JsonValue => {
         const node = nodes[nodeId];
-        if (!node) return undefined;
+        if (!node) return null;
 
         switch (node.type) {
             case 'object': {
-                const result: Record<string, any> = {};
-                node.children?.forEach((childId) => {
+                const result: Record<string, JsonValue> = {};
+                (node.children ?? []).forEach((childId) => {
                     const childNode = nodes[childId];
                     if (childNode && childNode.key) {
                         result[childNode.key] = serializeNode(childId);
@@ -60,12 +63,12 @@ export const astToJson = (doc: JsonDocument): any => {
                 return result;
             }
             case 'array': {
-                return node.children?.map((childId) => serializeNode(childId));
+                return (node.children ?? []).map((childId) => serializeNode(childId));
             }
             case 'null':
                 return null;
             default:
-                return node.value;
+                return node.value ?? null;
         }
     };
 
