@@ -329,6 +329,72 @@ describe('useJsonStore', () => {
     expect(state.isDirty).toBe(true)
   })
 
+  it('builds and resolves JSONPath for nested object/array nodes', () => {
+    const doc = jsonToAst({ user: { tags: ['alpha', 'beta'] } })
+    useJsonStore.getState().setDocument(doc)
+
+    const store = useJsonStore.getState()
+    const tagsNode = findNodeByKey(getDocument(), 'tags')
+    const firstTagNodeId = getDocument().nodes[tagsNode.id].children?.[0]
+    if (!firstTagNodeId) throw new Error('First tag node is missing')
+
+    const path = store.buildJsonPath(firstTagNodeId)
+    expect(path).toBe('$.user.tags[0]')
+    expect(store.resolvePathToNodeId(path)).toBe(firstTagNodeId)
+  })
+
+  it('supports bracket JSONPath for non-identifier object keys', () => {
+    const doc = jsonToAst({ 'user-data': { value: 1 } })
+    useJsonStore.getState().setDocument(doc)
+
+    const store = useJsonStore.getState()
+    const valueNode = findNodeByKey(getDocument(), 'value')
+    const path = store.buildJsonPath(valueNode.id)
+
+    expect(path).toBe("$['user-data'].value")
+    expect(store.resolvePathToNodeId(path)).toBe(valueNode.id)
+  })
+
+  it('goToJsonPath selects node and expands its ancestors', () => {
+    const doc = jsonToAst({ root: { child: { leaf: true } } })
+    useJsonStore.getState().setDocument(doc)
+
+    const store = useJsonStore.getState()
+    const leafNode = findNodeByKey(getDocument(), 'leaf')
+    const result = store.goToJsonPath('$.root.child.leaf')
+
+    expect(result.ok).toBe(true)
+    const state = useJsonStore.getState()
+    expect(state.selectedId).toBe(leafNode.id)
+    expect(state.expandedIds.has(doc.rootId)).toBe(true)
+  })
+
+  it('returns failure for invalid JSONPath input', () => {
+    const doc = jsonToAst({ a: 1 })
+    useJsonStore.getState().setDocument(doc)
+
+    const store = useJsonStore.getState()
+    const result = store.goToJsonPath('$.missing.key')
+
+    expect(result.ok).toBe(false)
+    expect(result.reason).toBeDefined()
+  })
+
+  it('updates schema validation settings and errors in store', () => {
+    const store = useJsonStore.getState()
+
+    store.setSchemaText('{"type":"object"}')
+    store.setSchemaValidationEnabled(false)
+    store.setBlockSaveOnSchemaError(true)
+    store.setSchemaErrors([{ path: '$.name', keyword: 'required', message: 'must have required property' }])
+
+    const state = useJsonStore.getState()
+    expect(state.schemaText).toBe('{"type":"object"}')
+    expect(state.schemaValidationEnabled).toBe(false)
+    expect(state.blockSaveOnSchemaError).toBe(true)
+    expect(state.schemaErrors).toHaveLength(1)
+  })
+
   it('toggles theme between light and dark', () => {
     const store = useJsonStore.getState()
     expect(useJsonStore.getState().theme).toBe('light')

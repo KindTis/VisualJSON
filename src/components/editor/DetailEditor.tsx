@@ -3,6 +3,8 @@ import type { JsonNode, JsonNodeType } from '../../types';
 import { PrimitiveEditor } from './PrimitiveEditor';
 import { ObjectEditor } from './ObjectEditor';
 import { ArrayEditor } from './ArrayEditor';
+import { PathNavigator } from './PathNavigator';
+import { SchemaPanel } from './SchemaPanel';
 
 const NODE_TYPES: JsonNodeType[] = ['object', 'array', 'string', 'number', 'boolean', 'null'];
 
@@ -36,27 +38,34 @@ export const DetailEditor = () => {
     const document = useJsonStore((state) => state.document);
     const selectedId = useJsonStore((state) => state.selectedId);
     const changeNodeType = useJsonStore((state) => state.changeNodeType);
-
-    if (!document || !selectedId) {
-        return <div className="text-slate-400 dark:text-slate-500 text-sm flex items-center justify-center h-full">Select a node to edit</div>;
-    }
-
-    const node = document.nodes[selectedId];
-    if (!node) return <div>Node not found</div>;
+    const node = document && selectedId ? document.nodes[selectedId] : null;
 
     return (
-        <div className="h-full overflow-auto">
-            <NodeMeta node={node} onChangeType={(nextType) => changeNodeType(node.id, nextType)} />
+        <div className="h-full flex flex-col">
+            <PathNavigator />
 
-            <div className="p-3 bg-white dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 shadow-sm">
-                {node.type === 'object' ? (
-                    <ObjectEditor node={node} />
-                ) : node.type === 'array' ? (
-                    <ArrayEditor node={node} />
+            <div className="flex-1 overflow-auto">
+                {!document || !selectedId ? (
+                    <div className="text-slate-400 dark:text-slate-500 text-sm flex items-center justify-center h-full">Select a node to edit</div>
+                ) : !node ? (
+                    <div>Node not found</div>
                 ) : (
-                    <PrimitiveEditor node={node} />
+                    <>
+                        <NodeMeta node={node} onChangeType={(nextType) => changeNodeType(node.id, nextType)} />
+                        <div className="p-3 bg-white dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 shadow-sm">
+                            {node.type === 'object' ? (
+                                <ObjectEditor node={node} />
+                            ) : node.type === 'array' ? (
+                                <ArrayEditor node={node} />
+                            ) : (
+                                <PrimitiveEditor node={node} />
+                            )}
+                        </div>
+                    </>
                 )}
             </div>
+
+            <SchemaPanel />
         </div>
     );
 };

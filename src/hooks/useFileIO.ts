@@ -29,6 +29,8 @@ export const useFileIO = () => {
     const currentFileName = useJsonStore((state) => state.currentFileName);
     const isDirty = useJsonStore((state) => state.isDirty);
     const markSaved = useJsonStore((state) => state.markSaved);
+    const blockSaveOnSchemaError = useJsonStore((state) => state.blockSaveOnSchemaError);
+    const schemaErrors = useJsonStore((state) => state.schemaErrors);
 
     const confirmReplaceIfDirty = useCallback(() => {
         if (!isDirty) return true;
@@ -79,6 +81,10 @@ export const useFileIO = () => {
 
     const saveFile = useCallback(async () => {
         if (!document) return;
+        if (blockSaveOnSchemaError && schemaErrors.length > 0) {
+            alert(`Save blocked: ${schemaErrors.length} schema validation error(s) found.`);
+            return;
+        }
         const json = astToJson(document);
         const serialized = JSON.stringify(json, null, 2);
 
@@ -116,7 +122,7 @@ export const useFileIO = () => {
         a.click();
         URL.revokeObjectURL(url);
         markSaved();
-    }, [document, currentFileName, setCurrentFileName, markSaved]);
+    }, [document, currentFileName, setCurrentFileName, markSaved, blockSaveOnSchemaError, schemaErrors]);
 
     const handlePaste = useCallback((e: ClipboardEvent) => {
         // Only paste if not in an input/textarea

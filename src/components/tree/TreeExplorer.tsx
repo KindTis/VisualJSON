@@ -13,6 +13,11 @@ export const TreeExplorer = () => {
     const selectedId = useJsonStore((state) => state.selectedId);
     const selectNode = useJsonStore((state) => state.selectNode);
     const toggleExpand = useJsonStore((state) => state.toggleExpand);
+    const schemaErrors = useJsonStore((state) => state.schemaErrors);
+    const schemaErrorNodeIds = useMemo(
+        () => new Set(schemaErrors.map((error) => error.nodeId).filter((nodeId): nodeId is string => Boolean(nodeId))),
+        [schemaErrors]
+    );
 
     const visibleNodes = useMemo(() => {
         if (!document) return [];
@@ -52,6 +57,7 @@ export const TreeExplorer = () => {
                                 depth={vn.depth}
                                 isSelected={vn.id === selectedId}
                                 isExpanded={expandedIds.has(vn.id)}
+                                hasSchemaError={schemaErrorNodeIds.has(vn.id)}
                                 onToggle={() => toggleExpand(vn.id)}
                                 onSelect={() => selectNode(vn.id)}
                                 childCount={node.children?.length}

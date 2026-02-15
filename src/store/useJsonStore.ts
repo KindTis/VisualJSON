@@ -4,11 +4,89 @@ import { v4 as uuidv4 } from 'uuid';
 
 type JsonPrimitive = string | number | boolean | null;
 type ThemeMode = 'light' | 'dark';
+type JsonPathSegment = { type: 'key'; value: string } | { type: 'index'; value: number };
+
+export interface SchemaValidationError {
+    path: string;
+    message: string;
+    keyword: string;
+    nodeId?: string;
+}
 
 const cloneNode = (node: JsonNode): JsonNode => ({
     ...node,
     children: node.children ? [...node.children] : undefined
 });
+
+const IDENTIFIER_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+
+const escapePathKey = (key: string): string => key.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+const appendKeySegment = (base: string, key: string): string => {
+    if (IDENTIFIER_PATTERN.test(key)) return `${base}.${key}`;
+    return `${base}['${escapePathKey(key)}']`;
+};
+
+const parseJsonPath = (path: string): JsonPathSegment[] | null => {
+    const value = path.trim();
+    if (!value.startsWith('$')) return null;
+
+    const segments: JsonPathSegment[] = [];
+    let index = 1;
+
+    while (index < value.length) {
+        const current = value[index];
+
+        if (current === '.') {
+            index += 1;
+            const start = index;
+            while (index < value.length && /[A-Za-z0-9_$]/.test(value[index])) index += 1;
+            if (start === index) return null;
+            segments.push({ type: 'key', value: value.slice(start, index) });
+            continue;
+        }
+
+        if (current === '[') {
+            index += 1;
+            if (index >= value.length) return null;
+
+            if (value[index] === "'") {
+                index += 1;
+                let key = '';
+                while (index < value.length) {
+                    const ch = value[index];
+                    if (ch === '\\') {
+                        const next = value[index + 1];
+                        if (next === undefined) return null;
+                        key += next;
+                        index += 2;
+                        continue;
+                    }
+                    if (ch === "'") break;
+                    key += ch;
+                    index += 1;
+                }
+                if (value[index] !== "'") return null;
+                index += 1;
+                if (value[index] !== ']') return null;
+                index += 1;
+                segments.push({ type: 'key', value: key });
+                continue;
+            }
+
+            const start = index;
+            while (index < value.length && /[0-9]/.test(value[index])) index += 1;
+            if (start === index || value[index] !== ']') return null;
+            segments.push({ type: 'index', value: Number(value.slice(start, index)) });
+            index += 1;
+            continue;
+        }
+
+        return null;
+    }
+
+    return segments;
+};
 
 const moveListItem = (list: string[], fromIndex: number, toIndex: number): string[] => {
     if (fromIndex < 0 || toIndex < 0 || fromIndex >= list.length || toIndex >= list.length || fromIndex === toIndex) {
@@ -42,6 +120,10 @@ interface JsonState {
     theme: ThemeMode;
     isDirty: boolean;
     lastSavedAt: number | null;
+    schemaText: string;
+    schemaValidationEnabled: boolean;
+    blockSaveOnSchemaError: boolean;
+    schemaErrors: SchemaValidationError[];
     selectedId: string | null;
     expandedIds: Set<string>;
 
@@ -59,9 +141,17 @@ interface JsonState {
     toggleTheme: () => void;
     markDirty: () => void;
     markSaved: () => void;
+    setSchemaText: (schemaText: string) => void;
+    setSchemaValidationEnabled: (enabled: boolean) => void;
+    setBlockSaveOnSchemaError: (enabled: boolean) => void;
+    setSchemaErrors: (errors: SchemaValidationError[]) => void;
 
     setDocument: (doc: JsonDocument) => void;
     setDocumentWithMeta: (doc: JsonDocument, fileName?: string, markAsSaved?: boolean) => void;
+    buildJsonPath: (nodeId: string) => string;
+    resolvePathToNodeId: (jsonPath: string) => string | null;
+    goToJsonPath: (jsonPath: string) => { ok: boolean; reason?: string };
+    focusNodeWithAncestors: (nodeId: string) => void;
     selectNode: (id: string | null) => void;
     toggleExpand: (id: string, expanded?: boolean) => void;
 
@@ -87,6 +177,10 @@ export const useJsonStore = create<JsonState>((set, get) => ({
     theme: 'light',
     isDirty: false,
     lastSavedAt: null,
+    schemaText: '',
+    schemaValidationEnabled: true,
+    blockSaveOnSchemaError: false,
+    schemaErrors: [],
     selectedId: null,
     expandedIds: new Set(),
 
@@ -102,6 +196,10 @@ export const useJsonStore = create<JsonState>((set, get) => ({
     toggleTheme: () => set((state) => ({ theme: state.theme === 'dark' ? 'light' : 'dark' })),
     markDirty: () => set({ isDirty: true }),
     markSaved: () => set({ isDirty: false, lastSavedAt: Date.now() }),
+    setSchemaText: (schemaText) => set({ schemaText }),
+    setSchemaValidationEnabled: (enabled) => set({ schemaValidationEnabled: enabled }),
+    setBlockSaveOnSchemaError: (enabled) => set({ blockSaveOnSchemaError: enabled }),
+    setSchemaErrors: (errors) => set({ schemaErrors: errors }),
 
     setDocument: (doc) => set((state) => ({
         document: doc,
@@ -130,6 +228,90 @@ export const useJsonStore = create<JsonState>((set, get) => ({
         isDirty: !markAsSaved,
         lastSavedAt: markAsSaved ? Date.now() : state.lastSavedAt
     })),
+
+    buildJsonPath: (nodeId) => {
+        const state = get();
+        if (!state.document) return '$';
+
+        const nodes = state.document.nodes;
+        let current = nodes[nodeId];
+        if (!current) return '$';
+
+        const parts: string[] = [];
+        while (current.parentId) {
+            const parent = nodes[current.parentId];
+            if (!parent) return '$';
+
+            if (parent.type === 'array') {
+                const index = parent.children?.indexOf(current.id) ?? -1;
+                if (index < 0) return '$';
+                parts.push(`[${index}]`);
+            } else if (parent.type === 'object') {
+                if (current.key === undefined) return '$';
+                parts.push(appendKeySegment('', current.key));
+            } else {
+                return '$';
+            }
+
+            current = parent;
+        }
+
+        return `$${parts.reverse().join('')}`;
+    },
+
+    resolvePathToNodeId: (jsonPath) => {
+        const state = get();
+        if (!state.document) return null;
+
+        const segments = parseJsonPath(jsonPath);
+        if (!segments) return null;
+
+        const nodes = state.document.nodes;
+        let currentId = state.document.rootId;
+
+        for (const segment of segments) {
+            const current = nodes[currentId];
+            if (!current) return null;
+
+            if (segment.type === 'key') {
+                if (current.type !== 'object' || !current.children) return null;
+                const nextId = current.children.find((childId) => nodes[childId]?.key === segment.value);
+                if (!nextId) return null;
+                currentId = nextId;
+            } else {
+                if (current.type !== 'array' || !current.children) return null;
+                if (segment.value < 0 || segment.value >= current.children.length) return null;
+                currentId = current.children[segment.value];
+            }
+        }
+
+        return currentId;
+    },
+
+    goToJsonPath: (jsonPath) => {
+        const state = get();
+        const nodeId = state.resolvePathToNodeId(jsonPath);
+        if (!nodeId) return { ok: false, reason: 'Invalid or unresolved JSONPath' };
+        state.focusNodeWithAncestors(nodeId);
+        return { ok: true };
+    },
+
+    focusNodeWithAncestors: (nodeId) => set((state) => {
+        if (!state.document || !state.document.nodes[nodeId]) return {};
+
+        const expanded = new Set(state.expandedIds);
+        const nodes = state.document.nodes;
+        let current = nodes[nodeId];
+        while (current && current.parentId) {
+            expanded.add(current.parentId);
+            current = nodes[current.parentId];
+        }
+
+        return {
+            selectedId: nodeId,
+            expandedIds: expanded
+        };
+    }),
 
     selectNode: (id) => set({ selectedId: id }),
 

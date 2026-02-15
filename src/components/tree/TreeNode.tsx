@@ -7,6 +7,7 @@ interface TreeNodeProps {
     depth: number;
     isSelected: boolean;
     isExpanded: boolean;
+    hasSchemaError?: boolean;
     onToggle: () => void;
     onSelect: () => void;
     childCount?: number;
@@ -37,7 +38,7 @@ const TypeBadge = ({ type }: { type: JsonNodeType }) => {
     );
 };
 
-export const TreeNode = ({ node, depth, isSelected, isExpanded, onToggle, onSelect, childCount }: TreeNodeProps) => {
+export const TreeNode = ({ node, depth, isSelected, isExpanded, hasSchemaError, onToggle, onSelect, childCount }: TreeNodeProps) => {
     const hasChildren = node.type === 'object' || node.type === 'array';
 
     const handleToggle = (e: React.MouseEvent) => {
@@ -49,7 +50,8 @@ export const TreeNode = ({ node, depth, isSelected, isExpanded, onToggle, onSele
         <div
             className={clsx(
                 "flex items-center h-6 px-2 cursor-pointer select-none text-sm font-mono whitespace-nowrap text-slate-800 dark:text-slate-200",
-                isSelected ? "bg-blue-100 dark:bg-blue-900/40" : "hover:bg-slate-50 dark:hover:bg-slate-700"
+                isSelected ? "bg-blue-100 dark:bg-blue-900/40" : "hover:bg-slate-50 dark:hover:bg-slate-700",
+                hasSchemaError ? "ring-1 ring-red-300 dark:ring-red-700" : ""
             )}
             style={{ paddingLeft: `${depth * 16 + 8}px` }}
             onClick={onSelect}
