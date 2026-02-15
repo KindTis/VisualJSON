@@ -1,12 +1,15 @@
 import type { JsonNode } from '../../types';
 import { useJsonStore } from '../../store/useJsonStore';
+import type { SchemaEditorHint } from '../../utils/schemaValidation';
 
 interface PrimitiveEditorProps {
     node: JsonNode;
+    schemaHint?: SchemaEditorHint | null;
 }
 
-export const PrimitiveEditor = ({ node }: PrimitiveEditorProps) => {
+export const PrimitiveEditor = ({ node, schemaHint }: PrimitiveEditorProps) => {
     const updateNodeValue = useJsonStore((state) => state.updateNodeValue);
+    const enumValues = schemaHint?.enumValues ?? [];
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         let value: string | number = e.target.value;
@@ -32,6 +35,19 @@ export const PrimitiveEditor = ({ node }: PrimitiveEditorProps) => {
                     value={node.value as string}
                     onChange={handleChange}
                 />
+                {enumValues.length > 0 && (
+                    <select
+                        value={String(node.value ?? '')}
+                        onChange={(e) => updateNodeValue(node.id, e.target.value)}
+                        className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded text-sm bg-white dark:bg-slate-700 dark:text-slate-100"
+                    >
+                        {enumValues.map((enumValue) => (
+                            <option key={String(enumValue)} value={String(enumValue)}>
+                                {String(enumValue)}
+                            </option>
+                        ))}
+                    </select>
+                )}
             </div>
         );
     }
@@ -46,6 +62,19 @@ export const PrimitiveEditor = ({ node }: PrimitiveEditorProps) => {
                     value={node.value as number}
                     onChange={handleChange}
                 />
+                {enumValues.length > 0 && (
+                    <select
+                        value={String(node.value ?? '')}
+                        onChange={(e) => updateNodeValue(node.id, Number(e.target.value))}
+                        className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded text-sm bg-white dark:bg-slate-700 dark:text-slate-100"
+                    >
+                        {enumValues.map((enumValue) => (
+                            <option key={String(enumValue)} value={String(enumValue)}>
+                                {String(enumValue)}
+                            </option>
+                        ))}
+                    </select>
+                )}
             </div>
         );
     }
@@ -61,6 +90,19 @@ export const PrimitiveEditor = ({ node }: PrimitiveEditorProps) => {
                     <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${node.value ? 'translate-x-6' : 'translate-x-1'}`} />
                 </button>
                 <span className="text-sm font-mono text-slate-700 dark:text-slate-100">{String(node.value)}</span>
+                {enumValues.length > 0 && (
+                    <select
+                        value={String(node.value)}
+                        onChange={(e) => updateNodeValue(node.id, e.target.value === 'true')}
+                        className="p-1 border border-slate-300 dark:border-slate-600 rounded text-sm bg-white dark:bg-slate-700 dark:text-slate-100"
+                    >
+                        {enumValues.map((enumValue) => (
+                            <option key={String(enumValue)} value={String(enumValue)}>
+                                {String(enumValue)}
+                            </option>
+                        ))}
+                    </select>
+                )}
             </div>
         );
     }

@@ -415,4 +415,86 @@ describe('useJsonStore', () => {
     store.setTheme('light')
     expect(useJsonStore.getState().theme).toBe('light')
   })
+
+  it('toggles view mode between tree and card', () => {
+    const store = useJsonStore.getState()
+    expect(useJsonStore.getState().viewMode).toBe('tree')
+
+    store.toggleViewMode()
+    expect(useJsonStore.getState().viewMode).toBe('card')
+
+    store.setViewMode('tree')
+    expect(useJsonStore.getState().viewMode).toBe('tree')
+  })
+
+  it('replaces document from json and supports undo/redo', () => {
+    const doc = jsonToAst({ title: 'A' })
+    useJsonStore.getState().setDocument(doc)
+
+    const store = useJsonStore.getState()
+    store.replaceDocumentFromJson({ title: 'B', count: 1 })
+
+    let currentDoc = getDocument()
+    const titleNode = Object.values(currentDoc.nodes).find((node) => node.key === 'title')
+    expect(titleNode?.value).toBe('B')
+
+    store.undo()
+    currentDoc = getDocument()
+    const restoredTitle = Object.values(currentDoc.nodes).find((node) => node.key === 'title')
+    expect(restoredTitle?.value).toBe('A')
+
+    store.redo()
+    currentDoc = getDocument()
+    const redoneTitle = Object.values(currentDoc.nodes).find((node) => node.key === 'title')
+    expect(redoneTitle?.value).toBe('B')
+  })
+
+  it('copies and pastes subtree json', () => {
+    const doc = jsonToAst({ profile: { name: 'Alice' }, tags: [] as string[] })
+    useJsonStore.getState().setDocument(doc)
+
+    const store = useJsonStore.getState()
+    const profileNode = findNodeByKey(getDocument(), 'profile')
+    const tagsNode = findNodeByKey(getDocument(), 'tags')
+
+    const payload = store.copyNodeJson(profileNode.id)
+    expect(payload).not.toBeNull()
+    const result = store.pasteNodeJson(tagsNode.id, payload!, 'append')
+    expect(result.ok).toBe(true)
+
+    const tagsChildren = getDocument().nodes[tagsNode.id].children ?? []
+    expect(tagsChildren.length).toBe(1)
+    const pastedNode = getDocument().nodes[tagsChildren[0]]
+    expect(pastedNode.type).toBe('object')
+  })
+
+  it('sorts object keys', () => {
+    const doc = jsonToAst({ root: { c: 1, a: 2, b: 3 } })
+    useJsonStore.getState().setDocument(doc)
+    const store = useJsonStore.getState()
+    const rootNode = findNodeByKey(getDocument(), 'root')
+
+    store.sortObjectKeys(rootNode.id, 'asc')
+
+    const sortedKeys = (getDocument().nodes[rootNode.id].children ?? [])
+      .map((childId) => getDocument().nodes[childId].key)
+    expect(sortedKeys).toEqual(['a', 'b', 'c'])
+  })
+
+  it('adds bookmarks and jumps to bookmarked path', () => {
+    const doc = jsonToAst({ user: { name: 'Alice' } })
+    useJsonStore.getState().setDocument(doc)
+    const store = useJsonStore.getState()
+    const nameNode = findNodeByKey(getDocument(), 'name')
+
+    store.selectNode(nameNode.id)
+    store.addCurrentPathBookmark()
+    const bookmark = useJsonStore.getState().bookmarks[0]
+    expect(bookmark).toBe('$.user.name')
+
+    store.selectNode(null)
+    const result = store.jumpBookmark(bookmark)
+    expect(result.ok).toBe(true)
+    expect(useJsonStore.getState().selectedId).toBe(nameNode.id)
+  })
 })

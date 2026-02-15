@@ -5,6 +5,8 @@ import { ObjectEditor } from './ObjectEditor';
 import { ArrayEditor } from './ArrayEditor';
 import { PathNavigator } from './PathNavigator';
 import { SchemaPanel } from './SchemaPanel';
+import { DiffMergePanel } from './DiffMergePanel';
+import { getSchemaHintForPath } from '../../utils/schemaValidation';
 
 const NODE_TYPES: JsonNodeType[] = ['object', 'array', 'string', 'number', 'boolean', 'null'];
 
@@ -38,7 +40,11 @@ export const DetailEditor = () => {
     const document = useJsonStore((state) => state.document);
     const selectedId = useJsonStore((state) => state.selectedId);
     const changeNodeType = useJsonStore((state) => state.changeNodeType);
+    const schemaText = useJsonStore((state) => state.schemaText);
+    const buildJsonPath = useJsonStore((state) => state.buildJsonPath);
     const node = document && selectedId ? document.nodes[selectedId] : null;
+    const path = node ? buildJsonPath(node.id) : '$';
+    const schemaHint = getSchemaHintForPath(schemaText, path);
 
     return (
         <div className="h-full flex flex-col">
@@ -54,17 +60,18 @@ export const DetailEditor = () => {
                         <NodeMeta node={node} onChangeType={(nextType) => changeNodeType(node.id, nextType)} />
                         <div className="p-3 bg-white dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 shadow-sm">
                             {node.type === 'object' ? (
-                                <ObjectEditor node={node} />
+                                <ObjectEditor node={node} schemaHint={schemaHint} />
                             ) : node.type === 'array' ? (
                                 <ArrayEditor node={node} />
                             ) : (
-                                <PrimitiveEditor node={node} />
+                                <PrimitiveEditor node={node} schemaHint={schemaHint} />
                             )}
                         </div>
                     </>
                 )}
             </div>
 
+            <DiffMergePanel />
             <SchemaPanel />
         </div>
     );

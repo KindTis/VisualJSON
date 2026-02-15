@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { jsonPointerToJsonPath, validateJsonWithSchema } from '../src/utils/schemaValidation'
+import { getSchemaHintForPath, jsonPointerToJsonPath, parseJsonPath, validateJsonWithSchema } from '../src/utils/schemaValidation'
 
 describe('schema validation utilities', () => {
   it('converts JSON Pointer paths to JSONPath', () => {
@@ -39,5 +39,37 @@ describe('schema validation utilities', () => {
     const errors = validateJsonWithSchema(schemaText, {})
     expect(errors.length).toBeGreaterThan(0)
     expect(errors[0].path).toBe('$.name')
+  })
+
+  it('parses JSONPath segments used by path-based features', () => {
+    const segments = parseJsonPath("$.user.tags[0]")
+    expect(segments).toEqual([
+      { type: 'key', value: 'user' },
+      { type: 'key', value: 'tags' },
+      { type: 'index', value: 0 },
+    ])
+  })
+
+  it('builds editor hints from schema for enum and required keys', () => {
+    const schemaText = JSON.stringify({
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['draft', 'published'] },
+        profile: {
+          type: 'object',
+          required: ['name'],
+          properties: {
+            name: { type: 'string' },
+          },
+        },
+      },
+    })
+
+    const statusHint = getSchemaHintForPath(schemaText, '$.status')
+    expect(statusHint?.enumValues).toEqual(['draft', 'published'])
+
+    const profileHint = getSchemaHintForPath(schemaText, '$.profile')
+    expect(profileHint?.requiredKeys).toEqual(['name'])
+    expect(profileHint?.propertySuggestions[0]?.key).toBe('name')
   })
 })

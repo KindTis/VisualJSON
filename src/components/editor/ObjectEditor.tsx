@@ -2,12 +2,23 @@ import { Plus, Trash2 } from 'lucide-react';
 import type { JsonNode, JsonNodeType } from '../../types';
 import { useJsonStore } from '../../store/useJsonStore';
 import { useState } from 'react';
+import type { SchemaEditorHint } from '../../utils/schemaValidation';
 
-export const ObjectEditor = ({ node }: { node: JsonNode }) => {
+const toNodeType = (schemaType?: string): JsonNodeType => {
+    if (schemaType === 'object') return 'object';
+    if (schemaType === 'array') return 'array';
+    if (schemaType === 'number' || schemaType === 'integer') return 'number';
+    if (schemaType === 'boolean') return 'boolean';
+    if (schemaType === 'null') return 'null';
+    return 'string';
+};
+
+export const ObjectEditor = ({ node, schemaHint }: { node: JsonNode; schemaHint?: SchemaEditorHint | null }) => {
     const document = useJsonStore((state) => state.document);
     const renameNodeKey = useJsonStore((state) => state.renameNodeKey);
     const deleteNode = useJsonStore((state) => state.deleteNode);
     const addNode = useJsonStore((state) => state.addNode);
+    const sortObjectKeys = useJsonStore((state) => state.sortObjectKeys);
 
     const [newKeyName, setNewKeyName] = useState('');
     const [newKeyType, setNewKeyType] = useState<JsonNodeType>('string');
@@ -22,8 +33,27 @@ export const ObjectEditor = ({ node }: { node: JsonNode }) => {
         setNewKeyName('');
     };
 
+    const missingRequiredKeys = (schemaHint?.requiredKeys ?? []).filter(
+        (requiredKey) => !children.some((child) => child.key === requiredKey)
+    );
+
     return (
         <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-end gap-2">
+                <button
+                    onClick={() => sortObjectKeys(node.id, 'asc')}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                >
+                    Sort A-Z
+                </button>
+                <button
+                    onClick={() => sortObjectKeys(node.id, 'desc')}
+                    className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                >
+                    Sort Z-A
+                </button>
+            </div>
+
             <div className="flex flex-col gap-2 p-3 bg-slate-50 dark:bg-slate-900 rounded border border-slate-200 dark:border-slate-700">
                 <span className="text-xs font-semibold text-slate-500 dark:text-slate-300 uppercase">Add Property</span>
                 <div className="flex gap-2">
@@ -51,6 +81,40 @@ export const ObjectEditor = ({ node }: { node: JsonNode }) => {
                     </button>
                 </div>
             </div>
+
+            {missingRequiredKeys.length > 0 && (
+                <div className="p-3 rounded border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20">
+                    <div className="text-xs font-semibold text-amber-700 dark:text-amber-300 uppercase">Missing Required</div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        {missingRequiredKeys.map((requiredKey) => (
+                            <button
+                                key={requiredKey}
+                                onClick={() => addNode(node.id, 'string', requiredKey)}
+                                className="px-2 py-1 rounded text-xs border border-amber-400 dark:border-amber-600 hover:bg-amber-100 dark:hover:bg-amber-800"
+                            >
+                                + {requiredKey}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {schemaHint && schemaHint.propertySuggestions.length > 0 && (
+                <div className="p-3 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+                    <div className="text-xs font-semibold text-slate-500 dark:text-slate-300 uppercase">Schema Suggestions</div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        {schemaHint.propertySuggestions.map((suggestion) => (
+                            <button
+                                key={suggestion.key}
+                                onClick={() => addNode(node.id, toNodeType(suggestion.type), suggestion.key)}
+                                className="px-2 py-1 rounded text-xs border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                            >
+                                + {suggestion.key}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             <div className="flex flex-col gap-2">
                 <span className="text-xs font-semibold text-slate-500 dark:text-slate-300 uppercase">Properties ({children.length})</span>

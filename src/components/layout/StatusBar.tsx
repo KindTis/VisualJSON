@@ -4,6 +4,9 @@ export const StatusBar = () => {
     const document = useJsonStore((state) => state.document);
     const isDirty = useJsonStore((state) => state.isDirty);
     const lastSavedAt = useJsonStore((state) => state.lastSavedAt);
+    const viewMode = useJsonStore((state) => state.viewMode);
+    const focusRootId = useJsonStore((state) => state.focusRootId);
+    const multiSelectedCount = useJsonStore((state) => state.multiSelectedIds.size);
     const nodeCount = document ? Object.keys(document.nodes).length : 0;
     const statusText = !document ? 'No Document' : isDirty ? 'Unsaved changes' : 'Saved';
     const rightText = lastSavedAt ? `Last saved: ${new Date(lastSavedAt).toLocaleTimeString()}` : 'Ready';
@@ -13,6 +16,9 @@ export const StatusBar = () => {
             <div className="flex items-center gap-4">
                 <span>{statusText}</span>
                 {document && <span>Nodes: {nodeCount}</span>}
+                <span>View: {viewMode}</span>
+                {focusRootId && <span>Focus: On</span>}
+                {multiSelectedCount > 1 && <span>Multi: {multiSelectedCount}</span>}
             </div>
             <div>
                 <span>{rightText}</span>
