@@ -230,6 +230,61 @@ describe('useJsonStore', () => {
     expect(getDocument().nodes[activeNode.id].value).toBe(true)
   })
 
+  it('reorders array items and supports undo/redo', () => {
+    const doc = jsonToAst({ items: ['a', 'b', 'c'] })
+    useJsonStore.getState().setDocument(doc)
+
+    const store = useJsonStore.getState()
+    const itemsNode = findNodeByKey(getDocument(), 'items')
+    const originalChildren = [...(getDocument().nodes[itemsNode.id].children ?? [])]
+    const movedNodeId = originalChildren[0]
+    store.selectNode(movedNodeId)
+
+    store.moveArrayItem(itemsNode.id, 0, 2)
+    const reorderedChildren = getDocument().nodes[itemsNode.id].children ?? []
+    expect(reorderedChildren).toEqual([originalChildren[1], originalChildren[2], originalChildren[0]])
+    expect(useJsonStore.getState().selectedId).toBe(movedNodeId)
+
+    store.undo()
+    expect(getDocument().nodes[itemsNode.id].children).toEqual(originalChildren)
+
+    store.redo()
+    expect(getDocument().nodes[itemsNode.id].children).toEqual(reorderedChildren)
+  })
+
+  it('does not create history entry for no-op reorder', () => {
+    const doc = jsonToAst({ items: ['a', 'b'] })
+    useJsonStore.getState().setDocument(doc)
+
+    const store = useJsonStore.getState()
+    const itemsNode = findNodeByKey(getDocument(), 'items')
+    const undoBefore = useJsonStore.getState().undoStack.length
+    const childrenBefore = [...(getDocument().nodes[itemsNode.id].children ?? [])]
+
+    store.moveArrayItem(itemsNode.id, 1, 1)
+
+    expect(useJsonStore.getState().undoStack).toHaveLength(undoBefore)
+    expect(getDocument().nodes[itemsNode.id].children).toEqual(childrenBefore)
+  })
+
+  it('ignores invalid reorder requests', () => {
+    const doc = jsonToAst({ profile: { name: 'Alice' }, items: ['x', 'y'] })
+    useJsonStore.getState().setDocument(doc)
+
+    const store = useJsonStore.getState()
+    const profileNode = findNodeByKey(getDocument(), 'profile')
+    const itemsNode = findNodeByKey(getDocument(), 'items')
+    const undoBefore = useJsonStore.getState().undoStack.length
+    const childrenBefore = [...(getDocument().nodes[itemsNode.id].children ?? [])]
+
+    store.moveArrayItem(profileNode.id, 0, 1)
+    store.moveArrayItem(itemsNode.id, -1, 1)
+    store.moveArrayItem(itemsNode.id, 0, 99)
+
+    expect(useJsonStore.getState().undoStack).toHaveLength(undoBefore)
+    expect(getDocument().nodes[itemsNode.id].children).toEqual(childrenBefore)
+  })
+
   it('falls back to untitled.json when file name is empty', () => {
     const store = useJsonStore.getState()
 

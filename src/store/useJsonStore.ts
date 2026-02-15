@@ -9,6 +9,16 @@ const cloneNode = (node: JsonNode): JsonNode => ({
     children: node.children ? [...node.children] : undefined
 });
 
+const moveListItem = (list: string[], fromIndex: number, toIndex: number): string[] => {
+    if (fromIndex < 0 || toIndex < 0 || fromIndex >= list.length || toIndex >= list.length || fromIndex === toIndex) {
+        return list;
+    }
+    const next = [...list];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    return next;
+};
+
 const getDefaultNodeState = (type: JsonNodeType): Pick<JsonNode, 'value' | 'children'> => {
     if (type === 'string') return { value: '', children: undefined };
     if (type === 'number') return { value: 0, children: undefined };
@@ -22,6 +32,7 @@ type HistoryCommand =
     | { type: 'RENAME_KEY'; payload: { id: string; oldKey?: string; newKey: string } }
     | { type: 'ADD_NODE'; payload: { parentId: string; node: JsonNode } }
     | { type: 'DELETE_NODE'; payload: { parentId: string; index: number; node: JsonNode; subtree: Record<string, JsonNode> } }
+    | { type: 'MOVE_ARRAY_ITEM'; payload: { parentId: string; fromIndex: number; toIndex: number } }
     | { type: 'CHANGE_TYPE'; payload: { id: string; oldNode: JsonNode; newNode: JsonNode; removedSubtree: Record<string, JsonNode> } };
 
 interface JsonState {
@@ -55,6 +66,7 @@ interface JsonState {
     // Mutations
     updateNodeValue: (id: string, value: JsonPrimitive) => void;
     changeNodeType: (id: string, nextType: JsonNodeType) => void;
+    moveArrayItem: (parentId: string, fromIndex: number, toIndex: number) => void;
     addNode: (parentId: string, type: JsonNodeType, key?: string) => void;
     deleteNode: (id: string) => void;
     renameNodeKey: (id: string, newKey: string) => void;
@@ -221,6 +233,15 @@ export const useJsonStore = create<JsonState>((set, get) => ({
                 Object.assign(nodes, subtree);
                 nodes[node.id] = node;
             }
+        } else if (command.type === 'MOVE_ARRAY_ITEM') {
+            const { parentId, fromIndex, toIndex } = command.payload;
+            const parent = nodes[parentId];
+            if (parent && parent.type === 'array' && parent.children) {
+                const reverted = moveListItem(parent.children, toIndex, fromIndex);
+                if (reverted !== parent.children) {
+                    nodes[parentId] = { ...parent, children: reverted };
+                }
+            }
         } else if (command.type === 'CHANGE_TYPE') {
             const { id, oldNode, removedSubtree } = command.payload;
             nodes[id] = cloneNode(oldNode);
@@ -268,6 +289,15 @@ export const useJsonStore = create<JsonState>((set, get) => ({
                 };
                 delete nodes[node.id];
                 Object.keys(subtree).forEach(id => delete nodes[id]);
+            }
+        } else if (command.type === 'MOVE_ARRAY_ITEM') {
+            const { parentId, fromIndex, toIndex } = command.payload;
+            const parent = nodes[parentId];
+            if (parent && parent.type === 'array' && parent.children) {
+                const reordered = moveListItem(parent.children, fromIndex, toIndex);
+                if (reordered !== parent.children) {
+                    nodes[parentId] = { ...parent, children: reordered };
+                }
             }
         } else if (command.type === 'CHANGE_TYPE') {
             const { id, newNode, removedSubtree } = command.payload;
@@ -352,6 +382,36 @@ export const useJsonStore = create<JsonState>((set, get) => ({
         return {
             document: { ...state.document, nodes: newNodes },
             expandedIds: newExpandedIds,
+            undoStack: [...state.undoStack, command],
+            redoStack: []
+        };
+    }),
+
+    moveArrayItem: (parentId, fromIndex, toIndex) => set((state) => {
+        if (!state.document) return {};
+
+        const parent = state.document.nodes[parentId];
+        if (!parent || parent.type !== 'array' || !parent.children) return {};
+
+        const reordered = moveListItem(parent.children, fromIndex, toIndex);
+        if (reordered === parent.children) return {};
+
+        const command: HistoryCommand = {
+            type: 'MOVE_ARRAY_ITEM',
+            payload: { parentId, fromIndex, toIndex }
+        };
+
+        return {
+            document: {
+                ...state.document,
+                nodes: {
+                    ...state.document.nodes,
+                    [parentId]: {
+                        ...parent,
+                        children: reordered
+                    }
+                }
+            },
             undoStack: [...state.undoStack, command],
             redoStack: []
         };
