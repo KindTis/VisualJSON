@@ -22,7 +22,7 @@ const IconButton = ({ icon: Icon, label, onClick, disabled }: IconButtonProps) =
 );
 
 export const TopBar = () => {
-    const { openFile, saveFile } = useFileIO();
+    const { openFile, saveFile, createNewDocument } = useFileIO();
 
     const undo = useJsonStore((state) => state.undo);
     const redo = useJsonStore((state) => state.redo);
@@ -42,8 +42,7 @@ export const TopBar = () => {
         <div className="h-12 border-b border-slate-200 dark:border-slate-700 flex items-center px-4 justify-between bg-white dark:bg-slate-800 shrink-0">
             <div className="flex items-center gap-2">
                 <IconButton icon={FolderOpen} label="Open" onClick={openFile} />
-                {/* New button resets document? For now just placeholder or reload */}
-                <IconButton icon={FilePlus} label="New" onClick={() => window.location.reload()} />
+                <IconButton icon={FilePlus} label="New" onClick={createNewDocument} />
                 <div className="w-px h-6 bg-slate-300 mx-2" />
                 <IconButton icon={Save} label="Save" onClick={saveFile} />
             </div>

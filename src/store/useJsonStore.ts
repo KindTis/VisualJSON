@@ -40,6 +40,8 @@ interface JsonState {
     document: JsonDocument | null;
     currentFileName: string;
     theme: ThemeMode;
+    isDirty: boolean;
+    lastSavedAt: number | null;
     selectedId: string | null;
     expandedIds: Set<string>;
 
@@ -55,8 +57,11 @@ interface JsonState {
     setCurrentFileName: (fileName: string) => void;
     setTheme: (theme: ThemeMode) => void;
     toggleTheme: () => void;
+    markDirty: () => void;
+    markSaved: () => void;
 
     setDocument: (doc: JsonDocument) => void;
+    setDocumentWithMeta: (doc: JsonDocument, fileName?: string, markAsSaved?: boolean) => void;
     selectNode: (id: string | null) => void;
     toggleExpand: (id: string, expanded?: boolean) => void;
 
@@ -80,6 +85,8 @@ export const useJsonStore = create<JsonState>((set, get) => ({
     document: null,
     currentFileName: 'untitled.json',
     theme: 'light',
+    isDirty: false,
+    lastSavedAt: null,
     selectedId: null,
     expandedIds: new Set(),
 
@@ -93,17 +100,36 @@ export const useJsonStore = create<JsonState>((set, get) => ({
     setCurrentFileName: (fileName) => set({ currentFileName: fileName || 'untitled.json' }),
     setTheme: (theme) => set({ theme }),
     toggleTheme: () => set((state) => ({ theme: state.theme === 'dark' ? 'light' : 'dark' })),
+    markDirty: () => set({ isDirty: true }),
+    markSaved: () => set({ isDirty: false, lastSavedAt: Date.now() }),
 
-    setDocument: (doc) => set({
+    setDocument: (doc) => set((state) => ({
         document: doc,
+        currentFileName: state.currentFileName || 'untitled.json',
         expandedIds: new Set([doc.rootId]),
         selectedId: null,
         undoStack: [],
         redoStack: [],
         searchResults: [],
         searchQuery: '',
-        currentSearchIndex: -1
-    }),
+        currentSearchIndex: -1,
+        isDirty: false,
+        lastSavedAt: Date.now()
+    })),
+
+    setDocumentWithMeta: (doc, fileName, markAsSaved = true) => set((state) => ({
+        document: doc,
+        currentFileName: fileName || state.currentFileName || 'untitled.json',
+        expandedIds: new Set([doc.rootId]),
+        selectedId: null,
+        undoStack: [],
+        redoStack: [],
+        searchResults: [],
+        searchQuery: '',
+        currentSearchIndex: -1,
+        isDirty: !markAsSaved,
+        lastSavedAt: markAsSaved ? Date.now() : state.lastSavedAt
+    })),
 
     selectNode: (id) => set({ selectedId: id }),
 
@@ -259,6 +285,7 @@ export const useJsonStore = create<JsonState>((set, get) => ({
 
         return {
             document: { ...newDocument, nodes },
+            isDirty: true,
             undoStack: newUndoStack,
             redoStack: newRedoStack
         };
@@ -314,6 +341,7 @@ export const useJsonStore = create<JsonState>((set, get) => ({
 
         return {
             document: { ...newDocument, nodes },
+            isDirty: true,
             undoStack: newUndoStack,
             redoStack: newRedoStack
         };
@@ -339,6 +367,7 @@ export const useJsonStore = create<JsonState>((set, get) => ({
                     [id]: { ...node, value },
                 },
             },
+            isDirty: true,
             undoStack: [...state.undoStack, command],
             redoStack: []
         };
@@ -389,6 +418,7 @@ export const useJsonStore = create<JsonState>((set, get) => ({
         return {
             document: { ...state.document, nodes: newNodes },
             expandedIds: newExpandedIds,
+            isDirty: true,
             undoStack: [...state.undoStack, command],
             redoStack: []
         };
@@ -419,6 +449,7 @@ export const useJsonStore = create<JsonState>((set, get) => ({
                     }
                 }
             },
+            isDirty: true,
             undoStack: [...state.undoStack, command],
             redoStack: []
         };
@@ -460,6 +491,7 @@ export const useJsonStore = create<JsonState>((set, get) => ({
         return {
             document: { ...state.document, nodes: newNodes },
             expandedIds: new Set([...state.expandedIds, parentId]),
+            isDirty: true,
             undoStack: [...state.undoStack, command],
             redoStack: []
         };
@@ -513,6 +545,7 @@ export const useJsonStore = create<JsonState>((set, get) => ({
                 }
             },
             selectedId: state.selectedId === id ? null : state.selectedId,
+            isDirty: true,
             undoStack: [...state.undoStack, command],
             redoStack: []
         };
@@ -536,6 +569,7 @@ export const useJsonStore = create<JsonState>((set, get) => ({
                     [id]: { ...node, key: newKey }
                 }
             },
+            isDirty: true,
             undoStack: [...state.undoStack, command],
             redoStack: []
         };

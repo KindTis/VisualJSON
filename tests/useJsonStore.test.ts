@@ -295,6 +295,40 @@ describe('useJsonStore', () => {
     expect(useJsonStore.getState().currentFileName).toBe('untitled.json')
   })
 
+  it('marks dirty on edit actions and clears dirty on markSaved', () => {
+    const doc = jsonToAst({ title: 'Draft' })
+    useJsonStore.getState().setDocument(doc)
+
+    const store = useJsonStore.getState()
+    const titleNode = findNodeByKey(getDocument(), 'title')
+    expect(useJsonStore.getState().isDirty).toBe(false)
+
+    store.updateNodeValue(titleNode.id, 'Published')
+    expect(useJsonStore.getState().isDirty).toBe(true)
+
+    store.markSaved()
+    const stateAfterSave = useJsonStore.getState()
+    expect(stateAfterSave.isDirty).toBe(false)
+    expect(stateAfterSave.lastSavedAt).not.toBeNull()
+  })
+
+  it('setDocumentWithMeta supports saved and recovered modes', () => {
+    const store = useJsonStore.getState()
+    const savedDoc = jsonToAst({ source: 'file' })
+    const recoveredDoc = jsonToAst({ source: 'autosave' })
+
+    store.setDocumentWithMeta(savedDoc, 'loaded.json', true)
+    let state = useJsonStore.getState()
+    expect(state.currentFileName).toBe('loaded.json')
+    expect(state.isDirty).toBe(false)
+    expect(state.lastSavedAt).not.toBeNull()
+
+    store.setDocumentWithMeta(recoveredDoc, 'recovered.json', false)
+    state = useJsonStore.getState()
+    expect(state.currentFileName).toBe('recovered.json')
+    expect(state.isDirty).toBe(true)
+  })
+
   it('toggles theme between light and dark', () => {
     const store = useJsonStore.getState()
     expect(useJsonStore.getState().theme).toBe('light')
