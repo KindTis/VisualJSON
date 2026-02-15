@@ -7,13 +7,13 @@ import { ArrayEditor } from './ArrayEditor';
 const NODE_TYPES: JsonNodeType[] = ['object', 'array', 'string', 'number', 'boolean', 'null'];
 
 const NodeMeta = ({ node, onChangeType }: { node: JsonNode; onChangeType: (nextType: JsonNodeType) => void }) => (
-    <div className="mb-4 p-3 bg-white rounded border border-slate-200 shadow-sm">
-        <div className="text-xs font-mono text-slate-400 mb-1">ID: {node.id}</div>
+    <div className="mb-4 p-3 bg-white dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 shadow-sm">
+        <div className="text-xs font-mono text-slate-400 dark:text-slate-500 mb-1">ID: {node.id}</div>
         <div className="flex gap-4 text-sm">
             <div>
-                <span className="text-slate-500 mr-2">Type:</span>
+                <span className="text-slate-500 dark:text-slate-300 mr-2">Type:</span>
                 <select
-                    className="font-semibold border border-slate-300 rounded px-2 py-1 bg-white"
+                    className="font-semibold border border-slate-300 dark:border-slate-600 rounded px-2 py-1 bg-white dark:bg-slate-700 dark:text-slate-100"
                     value={node.type}
                     onChange={(e) => onChangeType(e.target.value as JsonNodeType)}
                 >
@@ -25,8 +25,8 @@ const NodeMeta = ({ node, onChangeType }: { node: JsonNode; onChangeType: (nextT
                 </select>
             </div>
             <div>
-                <span className="text-slate-500 mr-2">Key:</span>
-                <span className="font-semibold">{node.key || '(root/index)'}</span>
+                <span className="text-slate-500 dark:text-slate-300 mr-2">Key:</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-100">{node.key || '(root/index)'}</span>
             </div>
         </div>
     </div>
@@ -38,7 +38,7 @@ export const DetailEditor = () => {
     const changeNodeType = useJsonStore((state) => state.changeNodeType);
 
     if (!document || !selectedId) {
-        return <div className="text-slate-400 text-sm flex items-center justify-center h-full">Select a node to edit</div>;
+        return <div className="text-slate-400 dark:text-slate-500 text-sm flex items-center justify-center h-full">Select a node to edit</div>;
     }
 
     const node = document.nodes[selectedId];
@@ -48,7 +48,7 @@ export const DetailEditor = () => {
         <div className="h-full overflow-auto">
             <NodeMeta node={node} onChangeType={(nextType) => changeNodeType(node.id, nextType)} />
 
-            <div className="p-3 bg-white rounded border border-slate-200 shadow-sm">
+            <div className="p-3 bg-white dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 shadow-sm">
                 {node.type === 'object' ? (
                     <ObjectEditor node={node} />
                 ) : node.type === 'array' ? (

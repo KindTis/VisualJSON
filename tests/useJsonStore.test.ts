@@ -294,4 +294,25 @@ describe('useJsonStore', () => {
     store.setCurrentFileName('')
     expect(useJsonStore.getState().currentFileName).toBe('untitled.json')
   })
+
+  it('toggles theme between light and dark', () => {
+    const store = useJsonStore.getState()
+    expect(useJsonStore.getState().theme).toBe('light')
+
+    store.toggleTheme()
+    expect(useJsonStore.getState().theme).toBe('dark')
+
+    store.toggleTheme()
+    expect(useJsonStore.getState().theme).toBe('light')
+  })
+
+  it('sets explicit theme value', () => {
+    const store = useJsonStore.getState()
+
+    store.setTheme('dark')
+    expect(useJsonStore.getState().theme).toBe('dark')
+
+    store.setTheme('light')
+    expect(useJsonStore.getState().theme).toBe('light')
+  })
 })

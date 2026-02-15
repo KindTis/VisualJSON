@@ -21,6 +21,8 @@ const SAMPLE_JSON = {
 function App() {
   const setDocument = useJsonStore((state) => state.setDocument);
   const currentFileName = useJsonStore((state) => state.currentFileName);
+  const theme = useJsonStore((state) => state.theme);
+  const setTheme = useJsonStore((state) => state.setTheme);
   const { handlePaste, handleDrop, handleDragOver } = useFileIO();
 
   // Load sample data on mount (for dev)
@@ -34,6 +36,18 @@ function App() {
   }, [currentFileName]);
 
   useEffect(() => {
+    const savedTheme = window.localStorage.getItem('visualjson-theme');
+    if (savedTheme === 'dark' || savedTheme === 'light') {
+      setTheme(savedTheme);
+    }
+  }, [setTheme]);
+
+  useEffect(() => {
+    window.document.documentElement.classList.toggle('dark', theme === 'dark');
+    window.localStorage.setItem('visualjson-theme', theme);
+  }, [theme]);
+
+  useEffect(() => {
     const listener: EventListener = (event) => {
       handlePaste(event as ClipboardEvent);
     };
@@ -44,7 +58,7 @@ function App() {
 
   return (
     <div
-      className="h-full flex flex-col font-sans text-slate-900"
+      className="h-full flex flex-col font-sans text-slate-900 bg-slate-100 dark:bg-slate-900 dark:text-slate-100"
       onDrop={handleDrop}
       onDragOver={handleDragOver}
     >
@@ -52,16 +66,16 @@ function App() {
 
       <div className="flex-1 flex overflow-hidden">
         {/* Left Pane: Tree Explorer */}
-        <div className="w-1/3 border-r border-slate-200 bg-white flex flex-col">
-          <div className="p-2 border-b border-slate-100 font-medium text-sm text-slate-600 bg-slate-50">Explorer</div>
+        <div className="w-1/3 border-r border-slate-200 bg-white flex flex-col dark:border-slate-700 dark:bg-slate-800">
+          <div className="p-2 border-b border-slate-100 font-medium text-sm text-slate-600 bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">Explorer</div>
           <div className="flex-1 overflow-hidden flex flex-col">
             <TreeExplorer />
           </div>
         </div>
 
         {/* Right Pane: Detail Editor */}
-        <div className="flex-1 bg-slate-50 flex flex-col">
-          <div className="p-2 border-b border-slate-200 font-medium text-sm text-slate-600 bg-white">Editor</div>
+        <div className="flex-1 bg-slate-50 flex flex-col dark:bg-slate-900">
+          <div className="p-2 border-b border-slate-200 font-medium text-sm text-slate-600 bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">Editor</div>
           <div className="flex-1 p-4 overflow-auto">
             <DetailEditor />
           </div>

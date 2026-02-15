@@ -26,12 +26,12 @@ const SortableArrayItem = ({ child, index, totalCount, onDelete, onMoveUp, onMov
         <div
             ref={setNodeRef}
             style={style}
-            className={`flex items-center gap-2 p-2 bg-white border rounded group ${isDragging ? 'border-blue-300 shadow-sm opacity-80' : 'border-slate-100 hover:border-blue-200'
+            className={`flex items-center gap-2 p-2 bg-white dark:bg-slate-800 border rounded group ${isDragging ? 'border-blue-300 dark:border-blue-700 shadow-sm opacity-80' : 'border-slate-100 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-700'
                 }`}
         >
             <button
                 type="button"
-                className="p-1 text-slate-400 hover:text-slate-600 cursor-grab active:cursor-grabbing"
+                className="p-1 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-200 cursor-grab active:cursor-grabbing"
                 title="Drag to reorder"
                 {...attributes}
                 {...listeners}
@@ -39,10 +39,10 @@ const SortableArrayItem = ({ child, index, totalCount, onDelete, onMoveUp, onMov
                 <GripVertical size={14} />
             </button>
 
-            <span className="font-mono text-xs text-slate-400 w-6 text-center">{index}</span>
-            <span className="text-xs text-slate-400 bg-slate-100 px-1 rounded">{child.type}</span>
+            <span className="font-mono text-xs text-slate-400 dark:text-slate-500 w-6 text-center">{index}</span>
+            <span className="text-xs text-slate-400 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-1 rounded">{child.type}</span>
 
-            <span className="flex-1 text-sm text-slate-500 truncate px-2">
+            <span className="flex-1 text-sm text-slate-500 dark:text-slate-300 truncate px-2">
                 {child.type === 'object' || child.type === 'array' ? '...' : String(child.value)}
             </span>
 
@@ -51,7 +51,7 @@ const SortableArrayItem = ({ child, index, totalCount, onDelete, onMoveUp, onMov
                     type="button"
                     onClick={onMoveUp}
                     disabled={index === 0}
-                    className="p-1 text-slate-400 hover:text-slate-700 disabled:text-slate-300 disabled:cursor-not-allowed"
+                    className="p-1 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 disabled:text-slate-300 dark:disabled:text-slate-700 disabled:cursor-not-allowed"
                     title="Move up"
                 >
                     <ChevronUp size={14} />
@@ -60,7 +60,7 @@ const SortableArrayItem = ({ child, index, totalCount, onDelete, onMoveUp, onMov
                     type="button"
                     onClick={onMoveDown}
                     disabled={index === totalCount - 1}
-                    className="p-1 text-slate-400 hover:text-slate-700 disabled:text-slate-300 disabled:cursor-not-allowed"
+                    className="p-1 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 disabled:text-slate-300 dark:disabled:text-slate-700 disabled:cursor-not-allowed"
                     title="Move down"
                 >
                     <ChevronDown size={14} />
@@ -110,11 +110,11 @@ export const ArrayEditor = ({ node }: { node: JsonNode }) => {
 
     return (
         <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2 p-3 bg-slate-50 rounded border border-slate-200">
-                <span className="text-xs font-semibold text-slate-500 uppercase">Add Item</span>
+            <div className="flex flex-col gap-2 p-3 bg-slate-50 dark:bg-slate-900 rounded border border-slate-200 dark:border-slate-700">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-300 uppercase">Add Item</span>
                 <div className="flex gap-2">
                     <select
-                        className="flex-1 p-1 border rounded text-sm bg-white"
+                        className="flex-1 p-1 border border-slate-300 dark:border-slate-600 rounded text-sm bg-white dark:bg-slate-700 dark:text-slate-100"
                         value={newItemType}
                         onChange={(e) => setNewItemType(e.target.value as JsonNodeType)}
                     >
@@ -132,7 +132,7 @@ export const ArrayEditor = ({ node }: { node: JsonNode }) => {
             </div>
 
             <div className="flex flex-col gap-2">
-                <span className="text-xs font-semibold text-slate-500 uppercase">Items ({children.length})</span>
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-300 uppercase">Items ({children.length})</span>
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                     <SortableContext items={children.map((child) => child.id)} strategy={verticalListSortingStrategy}>
                         <div className="flex flex-col gap-2">

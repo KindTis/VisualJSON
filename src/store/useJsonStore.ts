@@ -3,6 +3,7 @@ import type { JsonDocument, JsonNode, JsonNodeType } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 type JsonPrimitive = string | number | boolean | null;
+type ThemeMode = 'light' | 'dark';
 
 const cloneNode = (node: JsonNode): JsonNode => ({
     ...node,
@@ -38,6 +39,7 @@ type HistoryCommand =
 interface JsonState {
     document: JsonDocument | null;
     currentFileName: string;
+    theme: ThemeMode;
     selectedId: string | null;
     expandedIds: Set<string>;
 
@@ -51,6 +53,8 @@ interface JsonState {
     redoStack: HistoryCommand[];
 
     setCurrentFileName: (fileName: string) => void;
+    setTheme: (theme: ThemeMode) => void;
+    toggleTheme: () => void;
 
     setDocument: (doc: JsonDocument) => void;
     selectNode: (id: string | null) => void;
@@ -75,6 +79,7 @@ interface JsonState {
 export const useJsonStore = create<JsonState>((set, get) => ({
     document: null,
     currentFileName: 'untitled.json',
+    theme: 'light',
     selectedId: null,
     expandedIds: new Set(),
 
@@ -86,6 +91,8 @@ export const useJsonStore = create<JsonState>((set, get) => ({
     redoStack: [],
 
     setCurrentFileName: (fileName) => set({ currentFileName: fileName || 'untitled.json' }),
+    setTheme: (theme) => set({ theme }),
+    toggleTheme: () => set((state) => ({ theme: state.theme === 'dark' ? 'light' : 'dark' })),
 
     setDocument: (doc) => set({
         document: doc,

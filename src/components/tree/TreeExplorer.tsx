@@ -35,10 +35,10 @@ export const TreeExplorer = () => {
         return result;
     }, [document, expandedIds]);
 
-    if (!document) return <div className="p-4 text-slate-400 text-sm">No document loaded</div>;
+    if (!document) return <div className="p-4 text-slate-400 dark:text-slate-500 text-sm">No document loaded</div>;
 
     return (
-        <div className="flex-1 overflow-auto h-full bg-white relative">
+        <div className="flex-1 overflow-auto h-full bg-white dark:bg-slate-800 relative">
             <div style={{ position: 'relative', height: visibleNodes.length * 24 }}>
                 {visibleNodes.map((vn, index) => {
                     const node = document.nodes[vn.id];

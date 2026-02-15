@@ -5,7 +5,7 @@ export const StatusBar = () => {
     const nodeCount = document ? Object.keys(document.nodes).length : 0;
 
     return (
-        <div className="h-6 border-t border-slate-200 bg-slate-50 flex items-center px-4 text-xs text-slate-500 justify-between shrink-0">
+        <div className="h-6 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center px-4 text-xs text-slate-500 dark:text-slate-300 justify-between shrink-0">
             <div className="flex items-center gap-4">
                 <span>{document ? 'Document Loaded' : 'No Document'}</span>
                 {document && <span>Nodes: {nodeCount}</span>}
