@@ -143,6 +143,93 @@ describe('useJsonStore', () => {
     expect(getDocument().nodes[nameNode.id].key).toBe('fullName')
   })
 
+  it('changes node type with safe defaults and supports undo/redo', () => {
+    const doc = jsonToAst({ title: 'Draft' })
+    useJsonStore.getState().setDocument(doc)
+
+    const titleNode = findNodeByKey(getDocument(), 'title')
+    const store = useJsonStore.getState()
+
+    store.changeNodeType(titleNode.id, 'number')
+    expect(getDocument().nodes[titleNode.id].type).toBe('number')
+    expect(getDocument().nodes[titleNode.id].value).toBe(0)
+    expect(getDocument().nodes[titleNode.id].children).toBeUndefined()
+
+    store.undo()
+    expect(getDocument().nodes[titleNode.id].type).toBe('string')
+    expect(getDocument().nodes[titleNode.id].value).toBe('Draft')
+
+    store.redo()
+    expect(getDocument().nodes[titleNode.id].type).toBe('number')
+    expect(getDocument().nodes[titleNode.id].value).toBe(0)
+  })
+
+  it('removes subtree when converting object to primitive and restores on undo', () => {
+    const doc = jsonToAst({ profile: { name: 'Alice', age: 30 } })
+    useJsonStore.getState().setDocument(doc)
+
+    const store = useJsonStore.getState()
+    const profileNode = findNodeByKey(getDocument(), 'profile')
+    const childIds = [...(getDocument().nodes[profileNode.id].children ?? [])]
+    expect(childIds.length).toBeGreaterThan(0)
+
+    store.toggleExpand(childIds[0], true)
+    store.changeNodeType(profileNode.id, 'string')
+
+    const stateAfterChange = useJsonStore.getState()
+    expect(getDocument().nodes[profileNode.id].type).toBe('string')
+    expect(getDocument().nodes[profileNode.id].value).toBe('')
+    childIds.forEach((childId) => {
+      expect(getDocument().nodes[childId]).toBeUndefined()
+      expect(stateAfterChange.expandedIds.has(childId)).toBe(false)
+    })
+
+    store.undo()
+    expect(getDocument().nodes[profileNode.id].type).toBe('object')
+    childIds.forEach((childId) => {
+      expect(getDocument().nodes[childId]).toBeDefined()
+    })
+  })
+
+  it('converts array to object and initializes empty children', () => {
+    const doc = jsonToAst({ items: [1, 2] })
+    useJsonStore.getState().setDocument(doc)
+
+    const store = useJsonStore.getState()
+    const itemsNode = findNodeByKey(getDocument(), 'items')
+    const previousChildren = [...(getDocument().nodes[itemsNode.id].children ?? [])]
+    expect(previousChildren).toHaveLength(2)
+
+    store.changeNodeType(itemsNode.id, 'object')
+    const changedNode = getDocument().nodes[itemsNode.id]
+    expect(changedNode.type).toBe('object')
+    expect(changedNode.value).toBeNull()
+    expect(changedNode.children).toEqual([])
+    previousChildren.forEach((childId) => {
+      expect(getDocument().nodes[childId]).toBeUndefined()
+    })
+
+    store.undo()
+    expect(getDocument().nodes[itemsNode.id].type).toBe('array')
+    expect(getDocument().nodes[itemsNode.id].children).toHaveLength(2)
+  })
+
+  it('does not create history entry for same-type conversion', () => {
+    const doc = jsonToAst({ active: true })
+    useJsonStore.getState().setDocument(doc)
+
+    const store = useJsonStore.getState()
+    const activeNode = findNodeByKey(getDocument(), 'active')
+    const undoCountBefore = useJsonStore.getState().undoStack.length
+
+    store.changeNodeType(activeNode.id, 'boolean')
+
+    const state = useJsonStore.getState()
+    expect(state.undoStack).toHaveLength(undoCountBefore)
+    expect(getDocument().nodes[activeNode.id].type).toBe('boolean')
+    expect(getDocument().nodes[activeNode.id].value).toBe(true)
+  })
+
   it('falls back to untitled.json when file name is empty', () => {
     const store = useJsonStore.getState()
 

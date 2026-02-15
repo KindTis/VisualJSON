@@ -4,11 +4,25 @@ import { v4 as uuidv4 } from 'uuid';
 
 type JsonPrimitive = string | number | boolean | null;
 
+const cloneNode = (node: JsonNode): JsonNode => ({
+    ...node,
+    children: node.children ? [...node.children] : undefined
+});
+
+const getDefaultNodeState = (type: JsonNodeType): Pick<JsonNode, 'value' | 'children'> => {
+    if (type === 'string') return { value: '', children: undefined };
+    if (type === 'number') return { value: 0, children: undefined };
+    if (type === 'boolean') return { value: false, children: undefined };
+    if (type === 'null') return { value: null, children: undefined };
+    return { value: null, children: [] };
+};
+
 type HistoryCommand =
     | { type: 'UPDATE_VALUE'; payload: { id: string; oldValue: JsonPrimitive; newValue: JsonPrimitive } }
     | { type: 'RENAME_KEY'; payload: { id: string; oldKey?: string; newKey: string } }
     | { type: 'ADD_NODE'; payload: { parentId: string; node: JsonNode } }
-    | { type: 'DELETE_NODE'; payload: { parentId: string; index: number; node: JsonNode; subtree: Record<string, JsonNode> } };
+    | { type: 'DELETE_NODE'; payload: { parentId: string; index: number; node: JsonNode; subtree: Record<string, JsonNode> } }
+    | { type: 'CHANGE_TYPE'; payload: { id: string; oldNode: JsonNode; newNode: JsonNode; removedSubtree: Record<string, JsonNode> } };
 
 interface JsonState {
     document: JsonDocument | null;
@@ -40,6 +54,7 @@ interface JsonState {
 
     // Mutations
     updateNodeValue: (id: string, value: JsonPrimitive) => void;
+    changeNodeType: (id: string, nextType: JsonNodeType) => void;
     addNode: (parentId: string, type: JsonNodeType, key?: string) => void;
     deleteNode: (id: string) => void;
     renameNodeKey: (id: string, newKey: string) => void;
@@ -206,6 +221,12 @@ export const useJsonStore = create<JsonState>((set, get) => ({
                 Object.assign(nodes, subtree);
                 nodes[node.id] = node;
             }
+        } else if (command.type === 'CHANGE_TYPE') {
+            const { id, oldNode, removedSubtree } = command.payload;
+            nodes[id] = cloneNode(oldNode);
+            Object.entries(removedSubtree).forEach(([nodeId, subtreeNode]) => {
+                nodes[nodeId] = cloneNode(subtreeNode);
+            });
         }
 
         return {
@@ -248,6 +269,10 @@ export const useJsonStore = create<JsonState>((set, get) => ({
                 delete nodes[node.id];
                 Object.keys(subtree).forEach(id => delete nodes[id]);
             }
+        } else if (command.type === 'CHANGE_TYPE') {
+            const { id, newNode, removedSubtree } = command.payload;
+            nodes[id] = cloneNode(newNode);
+            Object.keys(removedSubtree).forEach(nodeId => delete nodes[nodeId]);
         }
 
         return {
@@ -277,6 +302,56 @@ export const useJsonStore = create<JsonState>((set, get) => ({
                     [id]: { ...node, value },
                 },
             },
+            undoStack: [...state.undoStack, command],
+            redoStack: []
+        };
+    }),
+
+    changeNodeType: (id, nextType) => set((state) => {
+        if (!state.document) return {};
+        const node = state.document.nodes[id];
+        if (!node || node.type === nextType) return {};
+
+        const removedSubtree: Record<string, JsonNode> = {};
+        const collectSubtree = (nodeId: string) => {
+            const subtreeNode = state.document!.nodes[nodeId];
+            if (!subtreeNode) return;
+            removedSubtree[nodeId] = cloneNode(subtreeNode);
+            if (subtreeNode.children) subtreeNode.children.forEach(collectSubtree);
+        };
+        if (node.children) node.children.forEach(collectSubtree);
+
+        const oldNode = cloneNode(node);
+        const defaultState = getDefaultNodeState(nextType);
+        const newNode: JsonNode = {
+            ...node,
+            type: nextType,
+            value: defaultState.value,
+            children: defaultState.children
+        };
+
+        const newNodes = { ...state.document.nodes, [id]: cloneNode(newNode) };
+        Object.keys(removedSubtree).forEach((nodeId) => delete newNodes[nodeId]);
+
+        const command: HistoryCommand = {
+            type: 'CHANGE_TYPE',
+            payload: {
+                id,
+                oldNode,
+                newNode: cloneNode(newNode),
+                removedSubtree
+            }
+        };
+
+        const newExpandedIds = new Set(state.expandedIds);
+        Object.keys(removedSubtree).forEach((nodeId) => newExpandedIds.delete(nodeId));
+        if (nextType === 'object' || nextType === 'array') {
+            newExpandedIds.add(id);
+        }
+
+        return {
+            document: { ...state.document, nodes: newNodes },
+            expandedIds: newExpandedIds,
             undoStack: [...state.undoStack, command],
             redoStack: []
         };
