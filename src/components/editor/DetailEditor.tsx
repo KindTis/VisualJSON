@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useJsonStore } from '../../store/useJsonStore';
 import type { JsonNode, JsonNodeType } from '../../types';
 import { PrimitiveEditor } from './PrimitiveEditor';
@@ -9,6 +10,7 @@ import { DiffMergePanel } from './DiffMergePanel';
 import { getSchemaHintForPath } from '../../utils/schemaValidation';
 
 const NODE_TYPES: JsonNodeType[] = ['object', 'array', 'string', 'number', 'boolean', 'null'];
+type BottomTab = 'diff' | 'schema';
 
 const NodeMeta = ({ node, onChangeType }: { node: JsonNode; onChangeType: (nextType: JsonNodeType) => void }) => (
     <div className="mb-4 p-3 bg-white dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700 shadow-sm">
@@ -45,6 +47,17 @@ export const DetailEditor = () => {
     const node = document && selectedId ? document.nodes[selectedId] : null;
     const path = node ? buildJsonPath(node.id) : '$';
     const schemaHint = getSchemaHintForPath(schemaText, path);
+    const [isBottomPanelOpen, setIsBottomPanelOpen] = useState(false);
+    const [activeBottomTab, setActiveBottomTab] = useState<BottomTab>('schema');
+
+    const toggleBottomTab = (tab: BottomTab) => {
+        if (isBottomPanelOpen && activeBottomTab === tab) {
+            setIsBottomPanelOpen(false);
+            return;
+        }
+        setActiveBottomTab(tab);
+        setIsBottomPanelOpen(true);
+    };
 
     return (
         <div className="h-full flex flex-col">
@@ -71,8 +84,40 @@ export const DetailEditor = () => {
                 )}
             </div>
 
-            <DiffMergePanel />
-            <SchemaPanel />
+            <div className="mt-3 shrink-0">
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => toggleBottomTab('diff')}
+                        className={`px-2.5 py-1.5 rounded border text-xs ${isBottomPanelOpen && activeBottomTab === 'diff'
+                            ? 'border-blue-500 text-blue-600 dark:text-blue-300'
+                            : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                            }`}
+                    >
+                        Diff / Merge
+                    </button>
+                    <button
+                        onClick={() => toggleBottomTab('schema')}
+                        className={`px-2.5 py-1.5 rounded border text-xs ${isBottomPanelOpen && activeBottomTab === 'schema'
+                            ? 'border-blue-500 text-blue-600 dark:text-blue-300'
+                            : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                            }`}
+                    >
+                        Schema Validation
+                    </button>
+                    {isBottomPanelOpen && (
+                        <button
+                            onClick={() => setIsBottomPanelOpen(false)}
+                            className="px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-600 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                            Close
+                        </button>
+                    )}
+                </div>
+
+                {isBottomPanelOpen && (
+                    activeBottomTab === 'diff' ? <DiffMergePanel /> : <SchemaPanel />
+                )}
+            </div>
         </div>
     );
 };
