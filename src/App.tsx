@@ -3,7 +3,7 @@ import { StatusBar } from './components/layout/StatusBar';
 import { TreeExplorer } from './components/tree/TreeExplorer';
 import { DetailEditor } from './components/editor/DetailEditor';
 import { useJsonStore } from './store/useJsonStore';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { astToJson, jsonToAst } from './utils/parser';
 import { useFileIO } from './hooks/useFileIO';
 
@@ -20,6 +20,9 @@ const SAMPLE_JSON = {
 
 const AUTOSAVE_KEY = 'visualjson-autosave-v1';
 const AUTOSAVE_TS_KEY = 'visualjson-autosave-ts';
+const EXPLORER_WIDTH_KEY = 'visualjson-explorer-width-pct';
+const MIN_EXPLORER_WIDTH_PCT = 20;
+const MAX_EXPLORER_WIDTH_PCT = 65;
 
 interface AutosaveSnapshot {
   version: 1;
@@ -37,6 +40,13 @@ function App() {
   const setTheme = useJsonStore((state) => state.setTheme);
   const { handlePaste, handleDrop, handleDragOver } = useFileIO();
   const [autosaveSnapshot, setAutosaveSnapshot] = useState<AutosaveSnapshot | null>(null);
+  const [explorerWidthPct, setExplorerWidthPct] = useState(33);
+  const [isResizing, setIsResizing] = useState(false);
+  const splitContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const clampExplorerWidth = useCallback((value: number) => {
+    return Math.max(MIN_EXPLORER_WIDTH_PCT, Math.min(MAX_EXPLORER_WIDTH_PCT, value));
+  }, []);
 
   const loadSampleDocument = useCallback(() => {
     const ast = jsonToAst(SAMPLE_JSON);
@@ -81,9 +91,23 @@ function App() {
   }, [setTheme]);
 
   useEffect(() => {
+    const savedWidth = window.localStorage.getItem(EXPLORER_WIDTH_KEY);
+    if (!savedWidth) return;
+
+    const parsed = Number(savedWidth);
+    if (!Number.isNaN(parsed)) {
+      setExplorerWidthPct(clampExplorerWidth(parsed));
+    }
+  }, [clampExplorerWidth]);
+
+  useEffect(() => {
     window.document.documentElement.classList.toggle('dark', theme === 'dark');
     window.localStorage.setItem('visualjson-theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    window.localStorage.setItem(EXPLORER_WIDTH_KEY, String(explorerWidthPct));
+  }, [explorerWidthPct]);
 
   useEffect(() => {
     if (!document || !isDirty) return;
@@ -139,6 +163,42 @@ function App() {
     return () => window.removeEventListener('paste', listener);
   }, [handlePaste]);
 
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const onMouseMove = (event: MouseEvent) => {
+      const container = splitContainerRef.current;
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      if (rect.width <= 0) return;
+
+      const ratio = ((event.clientX - rect.left) / rect.width) * 100;
+      setExplorerWidthPct(clampExplorerWidth(ratio));
+    };
+
+    const onMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    window.document.body.style.userSelect = 'none';
+    window.document.body.style.cursor = 'col-resize';
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+
+    return () => {
+      window.document.body.style.userSelect = '';
+      window.document.body.style.cursor = '';
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [clampExplorerWidth, isResizing]);
+
+  const handleResizeStart = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsResizing(true);
+  };
+
   return (
     <div
       className="h-full flex flex-col font-sans text-slate-900 bg-slate-100 dark:bg-slate-900 dark:text-slate-100 relative"
@@ -147,17 +207,25 @@ function App() {
     >
       <TopBar />
 
-      <div className="flex-1 flex overflow-hidden">
+      <div ref={splitContainerRef} className="flex-1 flex overflow-hidden">
         {/* Left Pane: Tree Explorer */}
-        <div className="w-1/3 border-r border-slate-200 bg-white flex flex-col dark:border-slate-700 dark:bg-slate-800">
+        <div style={{ width: `${explorerWidthPct}%` }} className="shrink-0 bg-white flex flex-col dark:bg-slate-800 min-w-0">
           <div className="p-2 border-b border-slate-100 font-medium text-sm text-slate-600 bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">Explorer</div>
           <div className="flex-1 overflow-hidden flex flex-col">
             <TreeExplorer />
           </div>
         </div>
 
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize panes"
+          onMouseDown={handleResizeStart}
+          className={`w-1 shrink-0 border-l border-r border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 cursor-col-resize hover:bg-blue-400/40 dark:hover:bg-blue-500/30 ${isResizing ? 'bg-blue-400/50 dark:bg-blue-500/40' : ''}`}
+        />
+
         {/* Right Pane: Detail Editor */}
-        <div className="flex-1 bg-slate-50 flex flex-col dark:bg-slate-900">
+        <div className="flex-1 min-w-0 bg-slate-50 flex flex-col dark:bg-slate-900">
           <div className="p-2 border-b border-slate-200 font-medium text-sm text-slate-600 bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">Editor</div>
           <div className="flex-1 p-4 overflow-auto">
             <DetailEditor />
